@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Dance Improvement Note",
+    "slug": "dance-improvement-note",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "dance-improvement-note",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ]
+  }
+}
