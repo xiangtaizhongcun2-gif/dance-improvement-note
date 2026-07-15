@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,16 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type DanceCategory = 'standard' | 'latin';
-
-type PracticeRecord = {
-  id: string;
-  date: string;
-  category: DanceCategory;
-  dance: string;
-  content: string;
-  improvement: string;
-};
+import { loadPracticeRecords, savePracticeRecords } from '@/lib/practice-record-storage';
+import type { DanceCategory, PracticeRecord } from '@/types/practice-record';
 
 const categoryLabels: Record<DanceCategory, string> = {
   standard: 'スタンダード',
@@ -48,11 +40,31 @@ export default function PracticeScreen() {
   const [content, setContent] = useState('');
   const [improvement, setImprovement] = useState('');
   const [records, setRecords] = useState<PracticeRecord[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSavedRecords = async () => {
+      const savedRecords = await loadPracticeRecords();
+
+      if (isMounted) {
+        setRecords(savedRecords);
+        setIsLoadingRecords(false);
+      }
+    };
+
+    void loadSavedRecords();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const selectableDances = dancesByCategory[category];
   const isSaveDisabled = useMemo(
-    () => date.trim().length === 0 || dance.length === 0 || improvement.trim().length === 0,
-    [date, dance, improvement],
+    () => isLoadingRecords || date.trim().length === 0 || dance.length === 0 || improvement.trim().length === 0,
+    [date, dance, improvement, isLoadingRecords],
   );
 
   const handleSelectCategory = (nextCategory: DanceCategory) => {
@@ -74,7 +86,13 @@ export default function PracticeScreen() {
       improvement: improvement.trim(),
     };
 
-    setRecords((currentRecords) => [newRecord, ...currentRecords]);
+    setRecords((currentRecords) => {
+      const nextRecords = [newRecord, ...currentRecords];
+
+      void savePracticeRecords(nextRecords);
+
+      return nextRecords;
+    });
     setDate(getTodayText());
     setCategory('standard');
     setDance('');
@@ -193,7 +211,11 @@ export default function PracticeScreen() {
 
           <View style={styles.recordsSection}>
             <Text style={styles.sectionTitle}>保存した練習記録</Text>
-            {records.length === 0 ? (
+            {isLoadingRecords ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>保存済みの練習記録を読み込んでいます。</Text>
+              </View>
+            ) : records.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyText}>まだ練習記録はありません。</Text>
               </View>
