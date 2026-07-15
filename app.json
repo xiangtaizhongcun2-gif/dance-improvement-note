@@ -6,13 +6,10 @@
     "orientation": "portrait",
     "scheme": "dance-improvement-note",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
-    "android": {
-      "edgeToEdgeEnabled": true
-    },
+    "android": {},
     "web": {
       "bundler": "metro"
     },
