@@ -42,6 +42,15 @@ export default function PracticeScreen() {
   const [improvement, setImprovement] = useState('');
   const [records, setRecords] = useState<PracticeRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+
+  const resetForm = useCallback(() => {
+    setDate(getTodayText());
+    setCategory('standard');
+    setDance('');
+    setContent('');
+    setImprovement('');
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,6 +63,11 @@ export default function PracticeScreen() {
         if (isActive) {
           setRecords(savedRecords);
           setIsLoadingRecords(false);
+
+          if (editingRecordId !== null && !savedRecords.some((record) => record.id === editingRecordId)) {
+            setEditingRecordId(null);
+            resetForm();
+          }
         }
       };
 
@@ -62,10 +76,11 @@ export default function PracticeScreen() {
       return () => {
         isActive = false;
       };
-    }, []),
+    }, [editingRecordId, resetForm]),
   );
 
   const selectableDances = dancesByCategory[category];
+  const isEditing = editingRecordId !== null;
   const isSaveDisabled = useMemo(
     () => isLoadingRecords || date.trim().length === 0 || dance.length === 0 || improvement.trim().length === 0,
     [date, dance, improvement, isLoadingRecords],
@@ -76,8 +91,48 @@ export default function PracticeScreen() {
     setDance('');
   };
 
+  const handleStartEdit = (record: PracticeRecord) => {
+    setEditingRecordId(record.id);
+    setDate(record.date);
+    setCategory(record.category);
+    setDance(record.dance);
+    setContent(record.content);
+    setImprovement(record.improvement);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRecordId(null);
+    resetForm();
+  };
+
   const handleSave = () => {
     if (isSaveDisabled) {
+      return;
+    }
+
+    if (editingRecordId !== null) {
+      const targetRecord = records.find((record) => record.id === editingRecordId);
+
+      if (targetRecord === undefined) {
+        setEditingRecordId(null);
+        resetForm();
+        return;
+      }
+
+      const updatedRecord: PracticeRecord = {
+        ...targetRecord,
+        date: date.trim(),
+        category,
+        dance,
+        content: content.trim(),
+        improvement: improvement.trim(),
+      };
+      const nextRecords = records.map((record) => (record.id === editingRecordId ? updatedRecord : record));
+
+      setRecords(nextRecords);
+      void savePracticeRecords(nextRecords);
+      setEditingRecordId(null);
+      resetForm();
       return;
     }
 
@@ -90,19 +145,11 @@ export default function PracticeScreen() {
       improvement: improvement.trim(),
       isImprovementCompleted: false,
     };
+    const nextRecords = [newRecord, ...records];
 
-    setRecords((currentRecords) => {
-      const nextRecords = [newRecord, ...currentRecords];
-
-      void savePracticeRecords(nextRecords);
-
-      return nextRecords;
-    });
-    setDate(getTodayText());
-    setCategory('standard');
-    setDance('');
-    setContent('');
-    setImprovement('');
+    setRecords(nextRecords);
+    void savePracticeRecords(nextRecords);
+    resetForm();
   };
 
   return (
@@ -121,6 +168,13 @@ export default function PracticeScreen() {
           <Text style={styles.description}>今日の練習内容と次回に向けた改善点を記録します。</Text>
 
           <View style={styles.card}>
+            {isEditing ? (
+              <View style={styles.editingNotice}>
+                <Text style={styles.editingNoticeTitle}>保存済みの練習記録を編集中です</Text>
+                <Text style={styles.editingNoticeText}>変更を保存するか、編集をキャンセルしてください。</Text>
+              </View>
+            ) : null}
+
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>練習日 *</Text>
               <TextInput
@@ -209,9 +263,14 @@ export default function PracticeScreen() {
               style={[styles.saveButton, isSaveDisabled && styles.saveButtonDisabled]}
             >
               <Text style={[styles.saveButtonText, isSaveDisabled && styles.saveButtonTextDisabled]}>
-                保存する
+                {isEditing ? '変更を保存する' : '保存する'}
               </Text>
             </Pressable>
+            {isEditing ? (
+              <Pressable accessibilityRole="button" onPress={handleCancelEdit} style={styles.cancelEditButton}>
+                <Text style={styles.cancelEditButtonText}>編集をキャンセル</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.recordsSection}>
@@ -236,6 +295,9 @@ export default function PracticeScreen() {
                     <Text style={styles.recordBody}>練習内容：{record.content}</Text>
                   ) : null}
                   <Text style={styles.recordBody}>改善点：{record.improvement}</Text>
+                  <Pressable accessibilityRole="button" onPress={() => handleStartEdit(record)} style={styles.editButton}>
+                    <Text style={styles.editButtonText}>編集</Text>
+                  </Pressable>
                 </View>
               ))
             )}
@@ -279,6 +341,26 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     padding: 18,
+  },
+  editingNotice: {
+    backgroundColor: '#f9fafb',
+    borderColor: '#d1d5db',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 20,
+    padding: 14,
+  },
+  editingNoticeTitle: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  editingNoticeText: {
+    color: '#6b7280',
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 4,
   },
   fieldGroup: {
     marginBottom: 20,
@@ -369,6 +451,19 @@ const styles = StyleSheet.create({
   saveButtonTextDisabled: {
     color: '#9ca3af',
   },
+  cancelEditButton: {
+    alignItems: 'center',
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingVertical: 14,
+  },
+  cancelEditButtonText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   recordsSection: {
     marginTop: 28,
   },
@@ -425,5 +520,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     marginTop: 4,
+  },
+  editButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderColor: '#e5e7eb',
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  editButtonText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
