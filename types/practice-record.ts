@@ -7,4 +7,5 @@ export type PracticeRecord = {
   dance: string;
   content: string;
   improvement: string;
+  isImprovementCompleted: boolean;
 };
