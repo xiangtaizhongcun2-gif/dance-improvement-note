@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -42,24 +43,27 @@ export default function PracticeScreen() {
   const [records, setRecords] = useState<PracticeRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-    const loadSavedRecords = async () => {
-      const savedRecords = await loadPracticeRecords();
+      const loadSavedRecords = async () => {
+        setIsLoadingRecords(true);
+        const savedRecords = await loadPracticeRecords();
 
-      if (isMounted) {
-        setRecords(savedRecords);
-        setIsLoadingRecords(false);
-      }
-    };
+        if (isActive) {
+          setRecords(savedRecords);
+          setIsLoadingRecords(false);
+        }
+      };
 
-    void loadSavedRecords();
+      void loadSavedRecords();
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
 
   const selectableDances = dancesByCategory[category];
   const isSaveDisabled = useMemo(
@@ -84,6 +88,7 @@ export default function PracticeScreen() {
       dance,
       content: content.trim(),
       improvement: improvement.trim(),
+      isImprovementCompleted: false,
     };
 
     setRecords((currentRecords) => {
